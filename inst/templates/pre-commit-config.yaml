@@ -9,41 +9,29 @@
 # the precommitr package and bump the package version.
 # =====================================================================
 
-default_stages: [pre-commit]
-default_language_version:
-  python: python3
-
 repos:
-  # ---- R-specific hooks (styler, lintr, parsable-R, no-browser, ...) ----
-  - repo: https://github.com/lorenzwalthert/precommit
-    rev: v0.4.3.9009
+  - repo: local
     hooks:
       - id: style-files
-        args: [--style_pkg=styler, --style_fun=tidyverse_style]
-      - id: lintr
-        args: [--warn_only]
+        name: Style R files with styler
+        entry: Rscript -e 'styler::style_file(commandArgs(TRUE))'
+        language: system
+        files: '\.(R|Rmd|Rnw|Rprofile)$'
+
       - id: parsable-R
+        name: Check R files parse
+        entry: Rscript -e 'for (f in commandArgs(TRUE)) parse(f)'
+        language: system
+        files: '\.R$'
+
       - id: no-browser-statement
-      - id: no-debug-statement
-      - id: no-print-statement
-      - id: readme-rmd-rendered
-      - id: use-tidy-description
+        name: Detect browser() calls
+        entry: Rscript -e 'source(Sys.getenv("YOURORG_HOOKS_DIR") |> file.path("no-browser.R"))'
+        language: system
+        files: '\.R$'
 
-  # ---- General hygiene hooks ----
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
-    hooks:
       - id: trailing-whitespace
-        exclude: '\.Rd$'
-      - id: end-of-file-fixer
-        exclude: '\.Rd$'
-      - id: check-added-large-files
-        args: [--maxkb=2048]
-      - id: check-merge-conflict
-      - id: check-yaml
-      - id: mixed-line-ending
-        args: [--fix=lf]
-
-ci:
-  autoupdate_schedule: monthly
-  skip: [lintr, style-files]
+        name: Strip trailing whitespace
+        entry: Rscript -e 'source(Sys.getenv("YOURORG_HOOKS_DIR") |> file.path("trailing-ws.R"))'
+        language: system
+        files: '.*'
