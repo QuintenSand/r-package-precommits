@@ -9,29 +9,39 @@
 # the precommitr package and bump the package version.
 # =====================================================================
 
+# Organization-wide pre-commit config
+# Managed by the yourorg.precommit R package.
+# Refresh with: yourorg.precommit::update_config()
+#
+# Note: every hook uses `Rscript --no-init-file` to bypass the project's
+# .Rprofile. This prevents renv from auto-activating the project library
+# and "hiding" the globally installed yourorg.precommit package.
+
 repos:
   - repo: local
     hooks:
-      - id: style-files
-        name: Style R files with styler
-        entry: Rscript -e 'styler::style_file(commandArgs(TRUE))'
-        language: system
-        files: '\.(R|Rmd|Rnw|Rprofile)$'
 
       - id: parsable-R
-        name: Check R files parse
-        entry: Rscript -e 'for (f in commandArgs(TRUE)) parse(f)'
+        name: R files parse cleanly
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("parsable-R", commandArgs(TRUE))'
         language: system
         files: '\.R$'
 
       - id: no-browser-statement
-        name: Detect browser() calls
-        entry: Rscript -e 'source(Sys.getenv("YOURORG_HOOKS_DIR") |> file.path("no-browser.R"))'
+        name: No uncommented browser() calls
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("no-browser-statement", commandArgs(TRUE))'
         language: system
         files: '\.R$'
 
+      - id: style-files
+        name: Style R / Rmd / qmd files with styler
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("style-files", commandArgs(TRUE))'
+        language: system
+        files: '\.(R|Rmd|qmd)$'
+
       - id: trailing-whitespace
         name: Strip trailing whitespace
-        entry: Rscript -e 'source(Sys.getenv("YOURORG_HOOKS_DIR") |> file.path("trailing-ws.R"))'
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("trailing-whitespace", commandArgs(TRUE))'
         language: system
-        files: '.*'
+        exclude: '\.(png|jpg|jpeg|gif|pdf|xlsx|xls|docx|pptx|rds|RData)$'
+
