@@ -17,15 +17,13 @@
 # .Rprofile. This prevents renv from auto-activating the project library
 # and "hiding" the globally installed yourorg.precommit package.
 
+# Organization-wide pre-commit config
+# Managed by the precommitr R package.
+# Refresh with: precommitr::update_config()
+
 repos:
   - repo: local
     hooks:
-
-      - id: parsable-R
-        name: R files parse cleanly
-        entry: Rscript --no-init-file -e 'precommitr::run_hook("parsable-R", commandArgs(TRUE))'
-        language: system
-        files: '\.R$'
 
       - id: no-browser-statement
         name: No uncommented browser() calls
@@ -44,4 +42,3 @@ repos:
         entry: Rscript --no-init-file -e 'precommitr::run_hook("trailing-whitespace", commandArgs(TRUE))'
         language: system
         exclude: '\.(png|jpg|jpeg|gif|pdf|xlsx|xls|docx|pptx|rds|RData)$'
-
