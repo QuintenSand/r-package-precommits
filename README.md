@@ -55,14 +55,14 @@ sequenceDiagram
     actor Analyst
     participant Hook as pre-commit on commit
 
-    Maintainer->>Repo: Edit inst/hooks/&lt;id&gt;.R or YAML
+    Maintainer->>Repo: Edit a hook script or YAML
     Maintainer->>Repo: Bump Version in DESCRIPTION
     Maintainer->>Repo: git push
     Analyst->>Repo: remotes::install_github(...)
     Analyst->>Analyst: precommitr::update_config()
     Note over Analyst: latest YAML now in the repo
     Analyst->>Hook: git commit
-    Hook->>Hook: runs updated inst/hooks/&lt;id&gt;.R
+    Hook->>Hook: runs the updated hook script
 ```
 
 ---
