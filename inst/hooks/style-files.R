@@ -37,7 +37,12 @@ cat(sprintf("styler: running tidyverse_style on %d file(s) ...\n",
 
 # All files processed in one subprocess so we pay R-startup cost once.
 # Inside the subprocess, commandArgs(trailingOnly = TRUE) gives the file
-# vector exactly as we pass it on the command line, so no quoting needed.
+# vector exactly as we pass it on the command line.
+#
+# IMPORTANT: system2() on Unix paste-joins its args into a single string
+# and runs it through `sh -c`, only shell-quoting `command` itself. The
+# raw `-e` expression contains parens, `<-`, `;`, `{}`, etc. which sh
+# tries to interpret, so we must shQuote() every arg ourselves.
 subprocess_expr <- paste(
   "args <- commandArgs(trailingOnly = TRUE);",
   "for (f in args) {",
@@ -47,7 +52,7 @@ subprocess_expr <- paste(
 
 status <- system2(
   "Rscript",
-  args = c("-e", subprocess_expr, files)
+  args = shQuote(c("-e", subprocess_expr, files))
 )
 
 if (!identical(status, 0L)) {
