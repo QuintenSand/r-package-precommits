@@ -31,7 +31,7 @@ flowchart TB
     subgraph S3["3. Every git commit"]
         direction TB
         C1["git commit"] --> C2[".git/hooks/pre-commit<br/>reads the YAML"]
-        C2 --> C3["for each hook id:<br/>Rscript --no-init-file -e<br/>'precommitr::run_hook(id, commandArgs(TRUE))'"]
+        C2 --> C3["for each hook id:<br/>Rscript -e<br/>'precommitr::run_hook(id, commandArgs(TRUE))'<br/>(respects .Rprofile / renv)"]
         C3 --> C4["dispatcher sources<br/>inst/hooks/&lt;id&gt;.R"]
         C4 --> C5{"script<br/>exit code"}
         C5 -- "0 (pass)" --> C6["commit proceeds ✅"]
@@ -86,16 +86,28 @@ precommitr::install_precommit()
 
 ### Note on `renv`
 
-Hooks are invoked with `Rscript --no-init-file`, which bypasses the project's
-`.Rprofile` (and thus `renv` auto-activation). This is deliberate — it means
-the hooks always use the **user library**, not the per-project renv library.
-Install `precommitr` into the user library:
+Hooks are invoked with plain `Rscript`, so the project's `.Rprofile` runs
+normally — which means `renv` auto-activates when present. The hook then uses
+whichever library `.libPaths()` resolves to.
+
+**If your project uses `renv`** (the common pattern on analyst VMs), install
+`precommitr` into the project library and snapshot it:
 
 ```r
-# from a fresh R session (no renv activation) — this is the default location
-install.packages("precommitr")
-# verify it landed in the user lib:
-.libPaths()[length(.libPaths())]
+renv::install("QuintenSand/r-package-precommits")
+renv::snapshot()
+```
+
+That puts `precommitr` in `renv/library/` and records it in `renv.lock`, so
+the hook will find it. Repeat this in each repo, or use
+`renv::settings$external.libraries()` to share one install across projects.
+
+**If your project doesn't use `renv`**, install `precommitr` to your user
+library and the hook will pick it up:
+
+```r
+remotes::install_github("QuintenSand/r-package-precommits")
+.libPaths()[length(.libPaths())]   # where it landed
 ```
 
 ---
