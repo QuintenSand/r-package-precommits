@@ -1,33 +1,32 @@
 # =====================================================================
-# Shared pre-commit configuration for R analysts
+# Organization-wide pre-commit config
 # Managed by the 'precommitr' R package.
 #
-# To install in a new repo:
-#   R> precommitr::use_precommits()
+# Install in a new repo:   R> precommitr::use_precommits()
+# Refresh after an update: R> precommitr::update_config()
 #
-# To update the shared hook versions across the org, edit this file in
-# the precommitr package and bump the package version.
+# Every hook is `repo: local` and dispatched through
+# precommitr::run_hook(), so pre-commit does NOT need to clone any
+# external hook repos at install time. As long as the 'pre-commit'
+# binary and the 'precommitr' R package are installed, the hooks work
+# fully offline.
+#
+# Note: every hook uses `Rscript --no-init-file` to bypass the
+# project's .Rprofile. This prevents renv from auto-activating the
+# project library and "hiding" the globally installed precommitr
+# package. Make sure precommitr is installed in the user library
+# (.libPaths()[length(.libPaths())]).
 # =====================================================================
 
-# Organization-wide pre-commit config
-# Managed by the yourorg.precommit R package.
-# Refresh with: yourorg.precommit::update_config()
-#
-# Note: every hook uses `Rscript --no-init-file` to bypass the project's
-# .Rprofile. This prevents renv from auto-activating the project library
-# and "hiding" the globally installed yourorg.precommit package.
-
-# Organization-wide pre-commit config
-# Managed by the precommitr R package.
-# Refresh with: precommitr::update_config()
+default_stages: [pre-commit]
 
 repos:
   - repo: local
     hooks:
 
-      - id: no-browser-statement
-        name: No uncommented browser() calls
-        entry: Rscript --no-init-file -e 'precommitr::run_hook("no-browser-statement", commandArgs(TRUE))'
+      - id: parsable-R
+        name: Parse R files
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("parsable-R", commandArgs(TRUE))'
         language: system
         files: '\.R$'
 
@@ -37,8 +36,54 @@ repos:
         language: system
         files: '\.(R|Rmd|qmd)$'
 
+      - id: lintr
+        name: Lint R files (warn only)
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("lintr", commandArgs(TRUE))'
+        language: system
+        files: '\.R$'
+
+      - id: no-browser-statement
+        name: No uncommented browser() calls
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("no-browser-statement", commandArgs(TRUE))'
+        language: system
+        files: '\.R$'
+
+      - id: no-debug-statement
+        name: No debug() / debugonce() calls
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("no-debug-statement", commandArgs(TRUE))'
+        language: system
+        files: '\.R$'
+
       - id: trailing-whitespace
         name: Strip trailing whitespace
         entry: Rscript --no-init-file -e 'precommitr::run_hook("trailing-whitespace", commandArgs(TRUE))'
         language: system
-        exclude: '\.(png|jpg|jpeg|gif|pdf|xlsx|xls|docx|pptx|rds|RData)$'
+        exclude: '\.(png|jpg|jpeg|gif|pdf|xlsx|xls|docx|pptx|rds|RData|ico|woff|woff2|ttf|otf)$'
+
+      - id: end-of-file-fixer
+        name: Ensure each text file ends with a newline
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("end-of-file-fixer", commandArgs(TRUE))'
+        language: system
+        exclude: '\.(png|jpg|jpeg|gif|pdf|xlsx|xls|docx|pptx|rds|RData|ico|woff|woff2|ttf|otf)$'
+
+      - id: mixed-line-ending
+        name: Normalise line endings to LF
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("mixed-line-ending", commandArgs(TRUE))'
+        language: system
+        exclude: '\.(png|jpg|jpeg|gif|pdf|xlsx|xls|docx|pptx|rds|RData|ico|woff|woff2|ttf|otf)$'
+
+      - id: check-merge-conflict
+        name: Detect leftover merge-conflict markers
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("check-merge-conflict", commandArgs(TRUE))'
+        language: system
+
+      - id: check-yaml
+        name: Validate YAML files
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("check-yaml", commandArgs(TRUE))'
+        language: system
+        files: '\.(ya?ml)$'
+
+      - id: check-added-large-files
+        name: Block files larger than 2 MB
+        entry: Rscript --no-init-file -e 'precommitr::run_hook("check-added-large-files", commandArgs(TRUE))'
+        language: system

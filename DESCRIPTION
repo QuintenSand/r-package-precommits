@@ -1,27 +1,33 @@
 Package: precommitr
 Title: Shared Pre-Commit Hooks for R Analysts
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person(given = "Quinten",
            family = "Sandberg",
            role = c("aut", "cre"),
            email = "quinten.sandberg@hotmail.com")
 Description: A small wrapper around the 'pre-commit' framework that ships an
-    opinionated, organisation-wide configuration for R projects. Provides one
-    function, use_precommits(), that copies the shared .pre-commit-config.yaml
-    into a repository and installs the git hooks so every analyst in the team
-    runs the same checks (styler, lintr, parsable-R, no-browser, no-debug, plus
-    common hygiene hooks) before each commit.
+    opinionated, organisation-wide configuration for R projects. Provides
+    use_precommits() to drop the shared .pre-commit-config.yaml into a repo
+    and activate its git hooks. All hooks are 'repo: local' and dispatched
+    through run_hook(), so the hooks work fully offline once 'precommitr'
+    and the 'pre-commit' binary are installed -- no git-cloning of
+    external hook repos required.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends:
     R (>= 4.0.0)
 Imports:
-    precommit (>= 0.4.0),
     fs,
-    cli
+    cli,
+    utils
 Suggests:
+    precommit (>= 0.4.0),
+    styler,
+    lintr,
+    yaml,
+    rstudioapi,
     testthat (>= 3.0.0)
-URL: https://github.com/quinten/r-package-precommits
-BugReports: https://github.com/quinten/r-package-precommits/issues
+URL: https://github.com/QuintenSand/r-package-precommits
+BugReports: https://github.com/QuintenSand/r-package-precommits/issues
 RoxygenNote: 7.3.1
