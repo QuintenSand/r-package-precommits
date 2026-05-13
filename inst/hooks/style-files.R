@@ -30,8 +30,18 @@ cat(sprintf("styler: running tidyverse_style on %d file(s) ...\n",
             length(files)))
 
 for (f in files) {
-  suppressMessages(
-    styler::style_file(f, transformers = styler::tidyverse_style())
+  # styler 1.11 fails with 'object terminal not found' when style_file()
+  # is called from inside this hook's sourced child environment -- its
+  # internal NSE (data-masking) walks the call stack with caller_env()
+  # / parent.frame() and lands in our wrapper env instead of globalenv,
+  # which breaks a tibble-column lookup deep inside styler. Running the
+  # call via eval(... envir = globalenv()) makes styler see the same
+  # call-stack it would in an interactive `styler::style_file()` call.
+  eval(
+    bquote(suppressMessages(
+      styler::style_file(.(f), transformers = styler::tidyverse_style())
+    )),
+    envir = globalenv()
   )
 }
 

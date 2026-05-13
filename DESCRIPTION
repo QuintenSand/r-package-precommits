@@ -1,6 +1,6 @@
 Package: precommitr
 Title: Shared Pre-Commit Hooks for R Analysts
-Version: 0.3.3
+Version: 0.3.4
 Authors@R:
     person(given = "Quinten",
            family = "Sandberg",
