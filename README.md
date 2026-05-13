@@ -15,26 +15,55 @@ access is whitelisted.
 
 ## How it works
 
-```
-+----------------------+        install once         +----------------------+
-| precommitr R package |  ---------------------->    |  Each analyst's      |
-| (this repo)          |     remotes::install_*      |  R installation      |
-+----------+-----------+        or internal mirror   +----------+-----------+
-           |                                                    |
-           | bundles inst/templates/pre-commit-config.yaml      |
-           |  (all hooks: repo: local, no upstream cloning)     | use_precommits()
-           v                                                    v
-   .pre-commit-config.yaml  ------ copied into ------>  any analyst repo
-                                                                |
-                                                                | git commit
-                                                                v
-                              pre-commit  ->  Rscript --no-init-file -e
-                                              'precommitr::run_hook(...)'
+```mermaid
+flowchart TB
+    subgraph S1["1. One-time setup (per machine)"]
+        direction LR
+        A1["install.packages('remotes')<br/>remotes::install_github(<br/>&nbsp;&nbsp;'QuintenSand/r-package-precommits')"] --> A2["pre-commit binary on PATH<br/>(pipx / pip / conda / brew)"]
+    end
+
+    subgraph S2["2. Per repo (once)"]
+        direction LR
+        B1["precommitr::use_precommits()"] --> B2[".pre-commit-config.yaml<br/>copied into repo root"]
+        B2 --> B3["pre-commit install<br/>writes .git/hooks/pre-commit"]
+    end
+
+    subgraph S3["3. Every git commit"]
+        direction TB
+        C1["git commit"] --> C2[".git/hooks/pre-commit<br/>reads the YAML"]
+        C2 --> C3["for each hook id:<br/>Rscript --no-init-file -e<br/>'precommitr::run_hook(id, commandArgs(TRUE))'"]
+        C3 --> C4["dispatcher sources<br/>inst/hooks/&lt;id&gt;.R"]
+        C4 --> C5{"script<br/>exit code"}
+        C5 -- "0 (pass)" --> C6["commit proceeds ✅"]
+        C5 -- "1 (fail / auto-fix)" --> C7["commit blocked ❌<br/>re-stage, commit again"]
+    end
+
+    S1 --> S2 --> S3
 ```
 
-The single source of truth is the YAML inside this package **plus** the hook
-implementations in `R/hooks.R`. To roll out a change org-wide, edit either,
-bump the package version, ask the team to upgrade.
+The single source of truth is the YAML in `inst/templates/` **plus** the
+scripts in `inst/hooks/<id>.R`. To roll out a change org-wide, edit one of
+those, bump the package version, ask the team to upgrade.
+
+### Org-wide update lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Maintainer
+    participant Repo as precommitr repo
+    actor Analyst
+    participant Hook as pre-commit on commit
+
+    Maintainer->>Repo: Edit inst/hooks/&lt;id&gt;.R or YAML
+    Maintainer->>Repo: Bump Version in DESCRIPTION
+    Maintainer->>Repo: git push
+    Analyst->>Repo: remotes::install_github(...)
+    Analyst->>Analyst: precommitr::update_config()
+    Note over Analyst: latest YAML now in the repo
+    Analyst->>Hook: git commit
+    Hook->>Hook: runs updated inst/hooks/&lt;id&gt;.R
+```
 
 ---
 
@@ -93,7 +122,8 @@ analyst just `git add`s the fix and commits again.
 
 When you want everyone to pick up a new version of the hooks:
 
-1. Edit `inst/templates/pre-commit-config.yaml` and/or `R/hooks.R`.
+1. Edit `inst/templates/pre-commit-config.yaml` and/or the relevant script
+   under `inst/hooks/<id>.R`.
 2. Bump the `Version:` in `DESCRIPTION`.
 3. Merge into `main` (or `development`).
 4. Tell analysts:
@@ -165,5 +195,5 @@ Yes — they can edit the local `.pre-commit-config.yaml`, but the next
 issue on this repo instead so the change gets picked up org-wide.
 
 **Q: What if a hook is too strict on an existing codebase?**
-Open a PR on this repo to relax the hook (edit the function in `R/hooks.R`
-or the YAML defaults). Don't fork the config per repo.
+Open a PR on this repo to relax the hook (edit the script in
+`inst/hooks/<id>.R` or the YAML defaults). Don't fork the config per repo.
