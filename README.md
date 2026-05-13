@@ -188,6 +188,34 @@ them only if you want the corresponding hooks to do anything.
 
 ## FAQ
 
+**Q: styler "failed" my commit — but the file looks fine now?**
+That's the standard pre-commit auto-fix pattern, and it's working as
+intended. The flow is:
+
+1. You stage a file with style issues and `git commit`.
+2. styler **edits the file in place** to fix the styling.
+3. The hook exits with status 1 — pre-commit blocks the commit so you can
+   review the auto-applied changes.
+4. Run `git diff <file>` to see what styler changed.
+5. `git add <file>` to re-stage the fixed version.
+6. `git commit` again — styler now finds nothing to do, the hook passes,
+   the commit lands.
+
+The "block + re-stage" step is deliberate: it makes sure auto-applied
+changes never sneak into a commit without you eyeballing them.
+
+**Q: Does lintr auto-fix issues?**
+No. `lintr` is a static analyzer, not a rewriter — there is no
+`lintr::fix()` in the R ecosystem, the way `ruff --fix` or
+`eslint --fix` work in other languages. The hook is intentionally
+warn-only: it prints findings (visible because the hook has
+`verbose: true`) but never blocks the commit. styler covers most
+*stylistic* issues lintr would flag (spacing, indentation, `=` vs
+`<-`, quote style, trailing whitespace); lintr is there for the
+semantic stuff styler can't touch (`object_name_linter`,
+`cyclocomp_linter`, undefined-variable detection, etc.) and you fix
+those by hand.
+
 **Q: Our VM can't reach github.com. Does this still work?**
 Yes — that's the whole point. The bundled config uses `repo: local` exclusively
 and dispatches every hook through `precommitr`, which is already installed
