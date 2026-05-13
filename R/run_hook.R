@@ -13,19 +13,11 @@
 #' edited without touching the rest of the package.
 #'
 #' For readability in `git commit` output, the dispatcher emits a trailing
-#' blank line after each hook finishes (whether the hook quits explicitly
-#' or falls through). It does this by shadowing `quit()` with a wrapper
-#' that prints `"\n"` first, then delegates to `base::quit()`.
-#'
-#' Implementation note: the script is sourced into `globalenv()` rather than
-#' a custom child env. That matters because some packages -- notably styler
-#' 1.11+ -- use non-standard evaluation that walks the call stack looking
-#' for "the user's environment". Sourcing into a child env adds an extra
-#' frame between styler and `globalenv()`, which causes styler's NSE
-#' lookups to land in our wrapper env instead of `globalenv()` and fail
-#' with "object 'terminal' not found" (a column name in styler's parse
-#' tibble). Sourcing into `globalenv()` makes the call stack look
-#' identical to an interactive `styler::style_file()` call.
+#' blank line after the hook finishes (whether the hook quits explicitly or
+#' falls through). It does this by shadowing `quit()` inside the hook's
+#' evaluation environment with a wrapper that prints `"\n"` first, then
+#' delegates to `base::quit()`. A plain `on.exit` wouldn't work because
+#' `quit()` terminates R before exit handlers fire.
 #'
 #' @param name Character. Hook name (matches a file `inst/hooks/<name>.R`).
 #' @param files Character vector of files to check. Defaults to
@@ -42,55 +34,29 @@ run_hook <- function(name, files = commandArgs(trailingOnly = TRUE)) {
     base::quit(status = 2, save = "no")
   }
 
-  ge <- globalenv()
+  # Each hook gets its own evaluation environment. We override:
+  #   * commandArgs() so the hook sees its file list
+  #   * quit() / q() so they print a trailing blank line before R exits,
+  #     keeping per-hook output visually separated in pre-commit's display.
+  hook_env <- new.env(parent = globalenv())
 
-  # Snapshot anything we're about to clobber so we can restore on fall-
-  # through. (When the hook script calls quit(), R exits and we never
-  # reach the restore -- which is fine because the process is dying.)
-  prev_cmdargs <- if (exists("commandArgs", envir = ge, inherits = FALSE)) {
-    get("commandArgs", envir = ge, inherits = FALSE)
-  } else NULL
-  prev_quit <- if (exists("quit", envir = ge, inherits = FALSE)) {
-    get("quit", envir = ge, inherits = FALSE)
-  } else NULL
-  prev_q <- if (exists("q", envir = ge, inherits = FALSE)) {
-    get("q", envir = ge, inherits = FALSE)
-  } else NULL
+  hook_env$commandArgs <- function(trailingOnly = FALSE) {
+    if (isTRUE(trailingOnly)) files else c("Rscript", files)
+  }
 
-  # Override commandArgs() so the hook script sees its file list, even
-  # when run_hook() is called interactively with explicit `files`.
-  assign(
-    "commandArgs",
-    function(trailingOnly = FALSE) {
-      if (isTRUE(trailingOnly)) files else c("Rscript", files)
-    },
-    envir = ge
-  )
-
-  # Override quit() / q() so each hook ends with a trailing blank line
-  # for readability in pre-commit's combined output.
   end_with_newline_quit <- function(save = "default", status = 0,
                                     runLast = TRUE) {
     cat("\n")
     base::quit(save = save, status = status, runLast = runLast)
   }
-  assign("quit", end_with_newline_quit, envir = ge)
-  assign("q",    end_with_newline_quit, envir = ge)
+  hook_env$quit <- end_with_newline_quit
+  hook_env$q    <- end_with_newline_quit
 
-  # Source into globalenv() so styler / dplyr NSE see the same call stack
-  # they would in an interactive session.
-  sys.source(script, envir = ge)
+  sys.source(script, envir = hook_env)
 
-  # Fall-through path: the script returned without quit(). Restore the
-  # overrides and emit the trailing newline ourselves.
-  if (is.null(prev_cmdargs)) {
-    rm("commandArgs", envir = ge)
-  } else {
-    assign("commandArgs", prev_cmdargs, envir = ge)
-  }
-  if (is.null(prev_quit)) rm("quit", envir = ge) else assign("quit", prev_quit, envir = ge)
-  if (is.null(prev_q))    rm("q",    envir = ge) else assign("q",    prev_q,    envir = ge)
-
+  # If the script fell through without calling quit(), still emit the
+  # trailing newline so the next hook's header isn't glued to this hook's
+  # last line of output.
   cat("\n")
   invisible(NULL)
 }
