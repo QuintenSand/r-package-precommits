@@ -2,16 +2,22 @@
 ## Runs styler::style_file() on each .R / .Rmd / .qmd file in the commit.
 ##
 ## Behaviour:
-##   * Always exits 0 — never blocks the commit.
+##   * Always exits 0 -- never blocks the commit.
 ##   * After styler edits the working-tree files, the hook re-stages them
-##     with `git add` so the commit includes the styled version (otherwise
-##     git's staged content is unchanged and the styled version would only
-##     land in the *next* commit).
+##     with `git add` so the commit includes the styled version.
 ##
-## Trade-off: the analyst doesn't get a chance to eyeball styler's changes
-## before they land. If you'd rather have the standard pre-commit
-## fix -> fail -> re-stage pattern, swap this script back to a version that
-## detects modifications and exits 1.
+## Implementation note: we shell out to a fresh `Rscript` subprocess to do
+## the actual styling, rather than calling styler::style_file() in-process.
+## Reason: styler 1.11's internal NSE silently fails with
+##     "object 'terminal' not found"
+## when style_file() is invoked from inside this hook's
+## `sys.source(envir = hook_env)` wrapper, even when re-routed through
+## eval(envir = globalenv()). The bug appears to depend on the call-stack
+## depth (something inside styler reads `sys.call(n)`/`sys.frame(n)` at a
+## fixed offset), so the only reliable fix is to run styler at the same
+## stack depth as a standalone `Rscript -e 'styler::style_file(...)'`
+## invocation -- i.e. in a fresh R process. Slower (~1-2s of R startup
+## per commit), but bulletproof.
 
 files <- commandArgs(trailingOnly = TRUE)
 files <- files[grepl("\\.(R|Rmd|qmd)$", files, ignore.case = TRUE)]
@@ -29,20 +35,25 @@ if (!requireNamespace("styler", quietly = TRUE)) {
 cat(sprintf("styler: running tidyverse_style on %d file(s) ...\n",
             length(files)))
 
-for (f in files) {
-  # styler 1.11 fails with 'object terminal not found' when style_file()
-  # is called from inside this hook's sourced child environment -- its
-  # internal NSE (data-masking) walks the call stack with caller_env()
-  # / parent.frame() and lands in our wrapper env instead of globalenv,
-  # which breaks a tibble-column lookup deep inside styler. Running the
-  # call via eval(... envir = globalenv()) makes styler see the same
-  # call-stack it would in an interactive `styler::style_file()` call.
-  eval(
-    bquote(suppressMessages(
-      styler::style_file(.(f), transformers = styler::tidyverse_style())
-    )),
-    envir = globalenv()
-  )
+# All files processed in one subprocess so we pay R-startup cost once.
+# Inside the subprocess, commandArgs(trailingOnly = TRUE) gives the file
+# vector exactly as we pass it on the command line, so no quoting needed.
+subprocess_expr <- paste(
+  "args <- commandArgs(trailingOnly = TRUE);",
+  "for (f in args) {",
+  "  styler::style_file(f, transformers = styler::tidyverse_style())",
+  "}"
+)
+
+status <- system2(
+  "Rscript",
+  args = c("-e", subprocess_expr, files)
+)
+
+if (!identical(status, 0L)) {
+  cat(sprintf(
+    "styler: Rscript subprocess exited with status %d\n", status
+  ))
 }
 
 # Re-stage any modifications styler made so they're part of the commit.
