@@ -36,12 +36,18 @@ repos:
         entry: Rscript -e 'precommitr::run_hook("style-files", commandArgs(TRUE))'
         language: system
         files: '\.(R|Rmd|qmd)$'
+        # `verbose: true` makes pre-commit show this hook's output even
+        # when it passes, so analysts can see styler logging "N files
+        # already styled, no changes" instead of a silent "Passed".
+        verbose: true
 
       - id: lintr
         name: Lint R files (warn only)
         entry: Rscript -e 'precommitr::run_hook("lintr", commandArgs(TRUE))'
         language: system
         files: '\.R$'
+        # Warn-only hook: always show the output so any lints are visible.
+        verbose: true
 
       - id: no-browser-statement
         name: No uncommented browser() calls
