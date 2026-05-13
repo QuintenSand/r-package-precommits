@@ -1,32 +1,29 @@
-% Generated manually — keep in sync with R/hooks.R
+% Generated manually — keep in sync with R/run_hook.R
 \name{run_hook}
 \alias{run_hook}
-\title{Dispatch a precommitr hook}
+\title{Run a packaged hook script}
 \usage{
-run_hook(hook, files = commandArgs(trailingOnly = TRUE))
+run_hook(name, files = commandArgs(trailingOnly = TRUE))
 }
 \arguments{
-\item{hook}{Hook id, e.g. \code{"style-files"} or \code{"no-browser-statement"}.}
+\item{name}{Character. Hook name (matches a file \code{inst/hooks/<name>.R}).}
 
-\item{files}{Character vector of file paths to operate on. Defaults to the
-trailing command-line args, which is what pre-commit passes.}
+\item{files}{Character vector of files to check. Defaults to
+\code{commandArgs(trailingOnly = TRUE)}, which is what pre-commit passes.}
 }
 \value{
-Invisibly returns \code{TRUE} on success. In non-interactive mode the
-process exits with status 1 on failure.
+Invisibly \code{NULL}. Side effect: runs the hook, which may call
+\code{quit()} and terminate the R session with a non-zero status.
 }
 \description{
-Entry point invoked from \code{.pre-commit-config.yaml}. Looks up the
-implementation by name, runs it, and exits with status 1 on failure so
-pre-commit knows to block the commit.
+Internal dispatcher used by entries in \code{.pre-commit-config.yaml}. Looks
+up a hook script bundled with the package under \code{inst/hooks/} and
+sources it, passing the list of files as
+\code{commandArgs(trailingOnly = TRUE)}.
 }
 \details{
-Each hook is implemented as a function named \verb{hook_<id-with-underscores>}
-inside \pkg{precommitr}. The following hooks ship by default:
-\code{parsable-R}, \code{style-files}, \code{lintr},
-\code{no-browser-statement}, \code{no-debug-statement},
-\code{no-print-statement}, \code{trailing-whitespace},
-\code{end-of-file-fixer}, \code{mixed-line-ending},
-\code{check-merge-conflict}, \code{check-yaml},
-\code{check-added-large-files}.
+Each hook script under \code{inst/hooks/<name>.R} is expected to read
+filenames from \code{commandArgs(trailingOnly = TRUE)}, print a useful
+message on failure, and call \code{quit(status = 1)} to fail the hook
+(or fall through to pass).
 }
