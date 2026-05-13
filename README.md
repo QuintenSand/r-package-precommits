@@ -188,21 +188,20 @@ them only if you want the corresponding hooks to do anything.
 
 ## FAQ
 
-**Q: styler "failed" my commit — but the file looks fine now?**
-That's the standard pre-commit auto-fix pattern, and it's working as
-intended. The flow is:
+**Q: How does the styler hook actually behave on commit?**
+As of v0.3.0 it just runs styler and re-stages the result. Concretely:
 
-1. You stage a file with style issues and `git commit`.
-2. styler **edits the file in place** to fix the styling.
-3. The hook exits with status 1 — pre-commit blocks the commit so you can
-   review the auto-applied changes.
-4. Run `git diff <file>` to see what styler changed.
-5. `git add <file>` to re-stage the fixed version.
-6. `git commit` again — styler now finds nothing to do, the hook passes,
-   the commit lands.
+1. You stage R / Rmd / qmd files and `git commit`.
+2. styler edits the files in place (tidyverse style).
+3. The hook then runs `git add` on those files so the styled version is
+   what ends up in the commit.
+4. The hook exits 0 — the commit goes through in one shot.
 
-The "block + re-stage" step is deliberate: it makes sure auto-applied
-changes never sneak into a commit without you eyeballing them.
+If you'd rather review styler's changes before they land (the standard
+pre-commit "fix → fail → re-stage" pattern), edit
+`inst/hooks/style-files.R` to compare before/after and exit 1 when
+anything was modified. Earlier versions of `precommitr` shipped that
+behaviour and the git history has the previous script.
 
 **Q: Does lintr auto-fix issues?**
 No. `lintr` is a static analyzer, not a rewriter — there is no
