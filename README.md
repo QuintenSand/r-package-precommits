@@ -189,13 +189,19 @@ them only if you want the corresponding hooks to do anything.
 ## FAQ
 
 **Q: How does the styler hook actually behave on commit?**
-As of v0.3.0 it just runs styler and re-stages the result. Concretely:
+It just runs styler and re-stages the result. Concretely:
 
 1. You stage R / Rmd / qmd files and `git commit`.
-2. styler edits the files in place (tidyverse style).
-3. The hook then runs `git add` on those files so the styled version is
+2. The hook spawns a fresh `Rscript` subprocess which calls
+   `styler::style_file()` on each file (tidyverse style). The
+   subprocess approach exists because `styler::style_file()` fails
+   silently with `object 'terminal' not found` when called from inside
+   the hook dispatcher's evaluation environment — see the
+   Troubleshooting section below.
+3. styler edits the files in place.
+4. The hook runs `git add` on those files so the styled version is
    what ends up in the commit.
-4. The hook exits 0 — the commit goes through in one shot.
+5. The hook exits 0 — the commit goes through in one shot.
 
 If you'd rather review styler's changes before they land (the standard
 pre-commit "fix → fail → re-stage" pattern), edit
@@ -236,3 +242,42 @@ issue on this repo instead so the change gets picked up org-wide.
 **Q: What if a hook is too strict on an existing codebase?**
 Open a PR on this repo to relax the hook (edit the script in
 `inst/hooks/<id>.R` or the YAML defaults). Don't fork the config per repo.
+
+---
+
+## Troubleshooting
+
+### `Error in loadNamespace(x) : there is no package called 'precommitr'`
+
+The hook ran but can't find the package. Two common causes:
+
+- You installed `precommitr` inside an renv-activated session but the
+  hook is running outside renv (or vice versa). The hook respects
+  `.Rprofile`, so renv activates if the project has it. Make sure
+  `precommitr` is in the library `.libPaths()` resolves to *for the
+  same R that runs the hook*. Test with:
+  ```bash
+  Rscript -e '"precommitr" %in% rownames(installed.packages())'
+  ```
+- You upgraded `precommitr` but didn't restart R. R caches loaded
+  namespaces for the whole session — even after `renv::install()`
+  rebuilds on disk, the in-memory `precommitr` is the old one until
+  you restart. `Ctrl+Shift+F10` in RStudio.
+
+### `update_config()` doesn't change `.pre-commit-config.yaml`
+
+Same restart issue as above — `update_config()` lives in the cached
+in-memory `precommitr`, and reads its bundled template from the *cached*
+package install. Restart R after `renv::install()`, then call
+`update_config()` again.
+
+### styler reports "Passed" but the file isn't actually styled
+
+If the verbose output shows styler ran on the file but no lines
+changed, and you can prove styler should have changed them
+(`Rscript -e 'styler::style_file("test_file.R")'` *does* edit the file),
+you may be hitting the depth-sensitive `object 'terminal' not found`
+NSE bug in styler 1.11. precommitr works around this by running styler
+in a fresh Rscript subprocess; that workaround is already in place as
+of v1.0.0. If you see this symptom on a newer styler version, the
+workaround can be removed — open an issue.
